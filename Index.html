@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Disney Wait Times</title>
+  <style>
+    :root {
+      /* Disney Castle & Park Magic Theme */
+      --bg: #0b132b;          
+      --card-bg: #1c2541;     
+      --text: #ffffff;        
+      --text-muted: #9aaccb;  
+      
+      --great-bg: #064e3b;    
+      --great-text: #4ade80;  
+      --bad-bg: #450a0a;     
+      --bad-text: #fca5a5;    
+      --normal-bg: #3a506b;   
+      --normal-text: #e2e8f0;  
+      
+      --accent-gold: #fbbf24; 
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 12px;
+      padding-bottom: 40px;
+    }
+
+    header {
+      position: sticky;
+      top: 0;
+      background-color: var(--bg);
+      padding: 8px 0 12px 0;
+      z-index: 100;
+      border-bottom: 1px solid var(--normal-bg);
+    }
+
+    h1 {
+      font-size: 1.25rem;
+      margin: 0 0 10px 0;
+      text-align: center;
+      color: var(--accent-gold);
+    }
+
+    .filter-bar {
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .filter-btn {
+      background: var(--card-bg);
+      color: var(--text-muted);
+      border: 1px solid var(--normal-bg);
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+
+    .filter-btn.active {
+      background: #2563eb;
+      color: white;
+      border-color: #3b82f6;
+      font-weight: bold;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    @media (min-width: 600px) {
+      .grid { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    .card {
+      background: var(--card-bg);
+      border-radius: 12px;
+      padding: 12px 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-left: 5px solid var(--normal-bg);
+    }
+
+    .card.GREAT { border-left-color: var(--great-text); }
+    .card.BAD { border-left-color: var(--bad-text); }
+    .card.CLOSED { opacity: 0.5; border-left-color: #64748b; }
+
+    .ride-info {
+      flex: 1;
+      padding-right: 10px;
+    }
+
+    .park-tag {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      margin-bottom: 2px;
+    }
+
+    .ride-name {
+      font-size: 0.95rem;
+      font-weight: 600;
+      line-height: 1.2;
+    }
+
+    .benchmark {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    .status-badge {
+      text-align: right;
+      min-width: 75px;
+    }
+
+    .wait-time {
+      font-size: 1.3rem;
+      font-weight: 800;
+    }
+
+    .badge {
+      display: inline-block;
+      font-size: 0.68rem;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 6px;
+      margin-top: 2px;
+    }
+
+    .badge.GREAT { background: var(--great-bg); color: var(--great-text); }
+    .badge.BAD { background: var(--bad-bg); color: var(--bad-text); }
+    .badge.NORMAL { background: var(--normal-bg); color: var(--normal-text); }
+    .badge.CLOSED { background: #334155; color: #94a3b8; }
+
+    #loader {
+      text-align: center;
+      padding: 40px 0;
+      color: var(--text-muted);
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>🏰 Disney Wait Times</h1>
+    <div class="filter-bar">
+      <button class="filter-btn active" onclick="filterPark('ALL', this)">All Parks</button>
+      <button class="filter-btn" onclick="filterPark('Magic Kingdom', this)">Magic Kingdom</button>
+      <button class="filter-btn" onclick="filterPark('EPCOT', this)">EPCOT</button>
+      <button class="filter-btn" onclick="filterPark('Hollywood Studios', this)">Hollywood Studios</button>
+      <button class="filter-btn" onclick="filterPark('Animal Kingdom', this)">Animal Kingdom</button>
+    </div>
+  </header>
+
+  <div id="loader">Loading live wait times...</div>
+  <div id="ride-grid" class="grid"></div>
+
+  <script>
+    // PASTE YOUR GOOGLE APPS SCRIPT WEB APP URL HERE:
+    const API_URL = "https://script.google.com/macros/s/AKfycbwfWWOIM9arMMjSJvmKg8m4yQBih-epaRGMVnTDOyrP8SmZgEXcWahCAP_BEokyMve_lw/exec";
+
+    let rawData = [];
+    let activePark = 'ALL';
+
+    async function loadData() {
+      try {
+        const response = await fetch(API_URL);
+        rawData = await response.json();
+        document.getElementById('loader').style.display = 'none';
+        displayCards();
+      } catch (err) {
+        document.getElementById('loader').innerText = "Failed to load live wait times.";
+        console.error(err);
+      }
+    }
+
+    function filterPark(parkName, btn) {
+      activePark = parkName;
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      displayCards();
+    }
+
+    function displayCards() {
+      const container = document.getElementById('ride-grid');
+      container.innerHTML = '';
+
+      const filtered = activePark === 'ALL' 
+        ? rawData 
+        : rawData.filter(r => r.park === activePark);
+
+      filtered.forEach(ride => {
+        const card = document.createElement('div');
+        card.className = `card ${ride.status}`;
+
+        let statusLabel = `${ride.percentDiff > 0 ? '+' : ''}${ride.percentDiff}%`;
+        if (ride.status === 'GREAT') statusLabel = `🟢 ${statusLabel}`;
+        if (ride.status === 'BAD') statusLabel = `🔴 ${statusLabel}`;
+        if (ride.status === 'NORMAL') statusLabel = `🟡 Normal`;
+        if (!ride.isOpen) statusLabel = `Closed`;
+
+        card.innerHTML = `
+          <div class="ride-info">
+            <div class="park-tag">${ride.park}</div>
+            <div class="ride-name">${ride.rideName}</div>
+            <div class="benchmark">Avg: ${ride.benchmarkWait} mins</div>
+          </div>
+          <div class="status-badge">
+            <div class="wait-time">${ride.isOpen ? ride.currentWait + '<span style="font-size:0.7rem;">m</span>' : '--'}</div>
+            <div class="badge ${ride.status}">${statusLabel}</div>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    loadData();
+  </script>
+</body>
+</html>
