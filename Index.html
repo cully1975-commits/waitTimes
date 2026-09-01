@@ -603,7 +603,11 @@
       });
     }
 
-    loadData();
+    // Load immediately on page open
+loadData();
+
+// Automatically pull fresh data every 5 minutes (300,000 ms)
+setInterval(loadData, 300000);
   </script>
 </body>
 </html>
