@@ -119,6 +119,19 @@
       cursor: pointer;
     }
 
+    .ll-banner {
+      display: none;
+      background: rgba(27, 69, 141, 0.9);
+      border: 1px solid #3b82f6;
+      border-radius: 8px;
+      padding: 6px 12px;
+      margin-top: 10px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-align: center;
+      color: #e2e8f0;
+    }
+
     .grid {
       display: grid;
       grid-template-columns: 1fr;
@@ -195,6 +208,7 @@
       display: flex;
       gap: 4px;
       margin-top: 4px;
+      flex-wrap: wrap;
     }
 
     .access-badge {
@@ -207,6 +221,7 @@
     }
 
     .access-badge.ll-single { background: #3b82f6; color: #ffffff; }
+    .access-badge.ll-multi { background: #2563eb; color: #ffffff; }
     .access-badge.vq { background: #a855f7; color: #ffffff; }
 
     .status-badge {
@@ -289,6 +304,7 @@
     </div>
   </header>
 
+  <div id="ll-banner" class="ll-banner"></div>
   <div id="loader">Loading live wait times...</div>
   <div id="ride-grid" class="grid"></div>
 
@@ -296,6 +312,7 @@
     const API_URL = "https://script.google.com/macros/s/AKfycbwfWWOIM9arMMjSJvmKg8m4yQBih-epaRGMVnTDOyrP8SmZgEXcWahCAP_BEokyMve_lw/exec";
 
     let rawData = [];
+    let multiPassPrices = {};
     let activePark = 'ALL';
     let currentSort = 'wait-desc';
 
@@ -312,12 +329,10 @@
       displayCards();
     }
 
-    // Process and store daily trends
     function updateTrends(data) {
       const todayStr = new Date().toISOString().split('T')[0];
       const storedHistory = JSON.parse(localStorage.getItem('wdw_wait_history') || '{}');
 
-      // Reset wait history if changing dates
       if (storedHistory.date !== todayStr) {
         storedHistory.date = todayStr;
         storedHistory.waits = {};
@@ -344,7 +359,16 @@
     async function loadData() {
       try {
         const response = await fetch(API_URL);
-        rawData = await response.json();
+        const payload = await response.json();
+
+        // Support both structured response payload and legacy array format
+        if (Array.isArray(payload)) {
+          rawData = payload;
+        } else {
+          rawData = payload.rides || [];
+          multiPassPrices = payload.multiPassPrices || {};
+        }
+
         updateTrends(rawData);
         document.getElementById('loader').style.display = 'none';
         displayCards();
@@ -386,10 +410,22 @@
       });
     }
 
+    function updateLLBanner() {
+      const banner = document.getElementById('ll-banner');
+      if (activePark !== 'ALL' && activePark !== 'FAVORITES' && multiPassPrices[activePark]) {
+        banner.innerText = `⚡ ${activePark} LL Multi Pass Today: $${multiPassPrices[activePark]}`;
+        banner.style.display = 'block';
+      } else {
+        banner.style.display = 'none';
+      }
+    }
+
     function displayCards() {
       const container = document.getElementById('ride-grid');
       container.innerHTML = '';
       const favs = getFavorites();
+
+      updateLLBanner();
 
       let filtered = [];
       if (activePark === 'FAVORITES') {
@@ -428,22 +464,22 @@
         if (ride.trend === 'UP') trendHtml = `<span class="trend-arrow trend-up" title="Wait increased">▲</span>`;
         if (ride.trend === 'DOWN') trendHtml = `<span class="trend-arrow trend-down" title="Wait decreased">▼</span>`;
 
-        // Access Badges (LL Single Pass with price / Virtual Queue)
-        let accessBadges = '';
-        if (ride.hasLLSingle || ride.hasVQ) {
-          accessBadges = '<div class="access-tags">';
-          
-          if (ride.hasLLSingle) {
-            const priceText = ride.llPrice ? ` $${ride.llPrice}` : '';
-            accessBadges += `<span class="access-badge ll-single">LL Single${priceText}</span>`;
-          }
-          
-          if (ride.hasVQ) {
-            accessBadges += '<span class="access-badge vq">Virtual Queue</span>';
-          }
-          
-          accessBadges += '</div>';
+        // Access Badges (LL Single / LL Multi / VQ)
+        let accessBadges = '<div class="access-tags">';
+        
+        if (ride.hasLLSingle) {
+          const priceText = ride.llPrice ? ` $${ride.llPrice}` : '';
+          accessBadges += `<span class="access-badge ll-single">LL Single${priceText}</span>`;
+        } else {
+          // Standard attractions eligible for LL Multi Pass
+          accessBadges += '<span class="access-badge ll-multi">LL Multi</span>';
         }
+
+        if (ride.hasVQ) {
+          accessBadges += '<span class="access-badge vq">Virtual Queue</span>';
+        }
+        
+        accessBadges += '</div>';
 
         card.innerHTML = `
           <div class="ride-info">
