@@ -1,203 +1,289 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Disney World Wait Times</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Disney Wait Times</title>
   <style>
-    /* Basic Layout & Styling */
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 20px; background: #f4f6f8; }
-    .controls-bar { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px; margin-bottom: 20px; background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-    .tabs { display: flex; flex-wrap: wrap; gap: 8px; }
-    .tab-btn { padding: 8px 14px; border: 1px solid #ccc; background: #fff; border-radius: 6px; cursor: pointer; font-weight: 600; }
-    .tab-btn.active { background: #007bff; color: white; border-color: #007bff; }
-    .sort-wrapper { display: flex; align-items: center; gap: 8px; font-weight: 600; }
-    select { padding: 8px; border-radius: 6px; border: 1px solid #ccc; font-size: 14px; }
-    
-    #attractions-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
-    .card { background: white; padding: 16px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); position: relative; }
-    .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-    .park-name { font-size: 12px; text-transform: uppercase; color: #666; font-weight: bold; }
-    .fav-btn { background: none; border: none; font-size: 20px; cursor: pointer; padding: 0; }
-    .card-title { font-size: 18px; font-weight: bold; margin-bottom: 12px; }
-    .card-body { display: flex; justify-content: space-between; align-items: center; }
-    .wait-time { font-size: 22px; font-weight: bold; color: #111; }
-    .trend { font-weight: bold; padding: 4px 8px; border-radius: 4px; }
-    .trend.down { color: #2e7d32; background: #e8f5e9; }
-    .trend.up { color: #c62828; background: #ffebee; }
-    .trend.normal { color: #f57f17; background: #fffde7; }
-    .loading, .empty-state { grid-column: 1 / -1; text-align: center; font-size: 18px; padding: 40px; color: #666; }
+    :root {
+      /* Disney Castle & Park Magic Theme */
+      --bg: #13a8d6;          
+      --card-bg: #1b458d;     
+      --text: #ffffff;        
+      --text-muted: #9aaccb;  
+      
+      --great-bg: #064e3b;    
+      --great-text: #4ade80;  
+      --bad-bg: #450a0a;     
+      --bad-text: #fca5a5;    
+      --normal-bg: #3a506b;   
+      --normal-text: #e2e8f0;  
+      
+      --accent-gold: #ffffff; 
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 12px;
+      padding-bottom: 40px;
+    }
+
+    header {
+      position: sticky;
+      top: 0;
+      background-color: var(--bg);
+      padding: 8px 0 12px 0;
+      z-index: 100;
+      border-bottom: 1px solid var(--normal-bg);
+    }
+
+    h1 {
+      font-size: 1.25rem;
+      margin: 0 0 10px 0;
+      text-align: center;
+      color: var(--accent-gold);
+    }
+
+    .filter-bar {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding: 4px 0 8px 0;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .filter-btn {
+      background: var(--card-bg);
+      border: 1px solid var(--normal-bg);
+      padding: 8px 14px;
+      border-radius: 20px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+      flex-shrink: 0;
+    }
+
+    .filter-btn svg {
+      width: 22px;
+      height: 22px;
+      display: block;
+      transition: transform 0.2s ease, fill 0.2s ease;
+    }
+
+    /* Custom Park Colors (Inactive State) */
+    .filter-btn[title="All Parks"] svg { fill: #60a5fa; }
+    .filter-btn[title="Magic Kingdom"] svg { fill: #3b82f6; }
+    .filter-btn[title="EPCOT"] svg { fill: #a855f7; }
+    .filter-btn[title="Hollywood Studios"] svg { fill: #ef4444; }
+    .filter-btn[title="Animal Kingdom"] svg { fill: #eab308; }
+
+    /* Hover / Press Feedback */
+    .filter-btn:active svg {
+      transform: scale(0.9);
+    }
+
+    /* Active Selected Button Styling */
+    .filter-btn.active[title="All Parks"] { background: #1e3a8a; border-color: #60a5fa; box-shadow: 0 0 10px rgba(96, 165, 250, 0.4); }
+    .filter-btn.active[title="Magic Kingdom"] { background: #1e3a8a; border-color: #3b82f6; box-shadow: 0 0 10px rgba(59, 130, 246, 0.4); }
+    .filter-btn.active[title="EPCOT"] { background: #581c87; border-color: #a855f7; box-shadow: 0 0 10px rgba(168, 85, 247, 0.4); }
+    .filter-btn.active[title="Hollywood Studios"] { background: #7f1d1d; border-color: #ef4444; box-shadow: 0 0 10px rgba(239, 68, 68, 0.4); }
+    .filter-btn.active[title="Animal Kingdom"] { background: #713f12; border-color: #eab308; box-shadow: 0 0 10px rgba(234, 179, 8, 0.4); }
+
+    .filter-btn.active svg {
+      fill: #ffffff !important;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    @media (min-width: 600px) {
+      .grid { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    .card {
+      background: var(--card-bg);
+      border-radius: 12px;
+      padding: 12px 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-left: 5px solid var(--normal-bg);
+    }
+
+    .card.GREAT { border-left-color: var(--great-text); }
+    .card.BAD { border-left-color: var(--bad-text); }
+    .card.CLOSED { opacity: 0.5; border-left-color: #64748b; }
+
+    .ride-info {
+      flex: 1;
+      padding-right: 10px;
+    }
+
+    .park-tag {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      margin-bottom: 2px;
+    }
+
+    .ride-name {
+      font-size: 0.95rem;
+      font-weight: 600;
+      line-height: 1.2;
+    }
+
+    .benchmark {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    .status-badge {
+      text-align: right;
+      min-width: 75px;
+    }
+
+    .wait-time {
+      font-size: 1.3rem;
+      font-weight: 800;
+    }
+
+    .badge {
+      display: inline-block;
+      font-size: 0.68rem;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 6px;
+      margin-top: 2px;
+    }
+
+    .badge.GREAT { background: var(--great-bg); color: var(--great-text); }
+    .badge.BAD { background: var(--bad-bg); color: var(--bad-text); }
+    .badge.NORMAL { background: var(--normal-bg); color: var(--normal-text); }
+    .badge.CLOSED { background: #334155; color: #94a3b8; }
+
+    #loader {
+      text-align: center;
+      padding: 40px 0;
+      color: var(--text-muted);
+    }
   </style>
 </head>
 <body>
 
-  <!-- Controls Bar -->
-  <div class="controls-bar">
-    <div class="tabs">
-      <button class="tab-btn active" data-tab="all">All Parks</button>
-      <button class="tab-btn" data-tab="MK">Magic Kingdom</button>
-      <button class="tab-btn" data-tab="EP">Epcot</button>
-      <button class="tab-btn" data-tab="HS">Hollywood Studios</button>
-      <button class="tab-btn" data-tab="AK">Animal Kingdom</button>
-      <button class="tab-btn" data-tab="favorites">Favorites</button>
-    </div>
+  <header>
+    <h1>Disney Wait Times</h1>
+    <div class="filter-bar">
+      <!-- ALL PARKS (Globe) -->
+      <button class="filter-btn active" onclick="filterPark('ALL', this)" title="All Parks">
+        <svg viewBox="0 0 24 24">
+          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+        </svg>
+      </button>
 
-    <div class="sort-wrapper">
-      <label for="sort-select">Sort by:</label>
-      <select id="sort-select">
-        <option value="wait-desc">Wait Time (High → Low)</option>
-        <option value="wait-asc">Wait Time (Low → High)</option>
-        <option value="favorites-first">Favorites First</option>
-      </select>
-    </div>
-  </div>
+      <!-- MAGIC KINGDOM (Castle) -->
+      <button class="filter-btn" onclick="filterPark('Magic Kingdom', this)" title="Magic Kingdom">
+        <svg viewBox="0 0 24 24">
+          <path d="M12 2L9.5 7H11v4H8.5L7 9H5v2H3v9h18v-9h-2V9h-2l-1.5 2H13V7h1.5L12 2zm-3 11h6v7H9v-7z"/>
+        </svg>
+      </button>
 
-  <!-- Main Container -->
-  <div id="attractions-container">
-    <div class="loading">Loading wait times...</div>
-  </div>
+      <!-- EPCOT (Geodesic Sphere) -->
+      <button class="filter-btn" onclick="filterPark('EPCOT', this)" title="EPCOT">
+        <svg viewBox="0 0 24 24">
+          <path d="M12 2a10 10 0 100 20 10 10 0 000-20zm0 2c1.3 0 2.5.3 3.6.8l-2.6 3.2h-2L8.4 4.8C9.5 4.3 10.7 4 12 4zm-5.4 2.2l2.3 2.8H6.3A7.96 7.96 0 016.6 6.2zM4 12c0-.7.1-1.4.3-2h3.4l-1.6 4H4.3A7.93 7.93 0 014 12zm2.3 4h2.6l-2.3 2.8c-.8-.7-1.4-1.7-1.9-2.8zm3.3 3.8l2.4-3h2l2.4 3c-1.1.5-2.3.8-3.6.8s-2.5-.3-3.6-.8zm7.8-1l-2.3-2.8h2.6c-.5 1.1-1.1 2.1-1.9 2.8zM19.7 14h-1.8l-1.6-4h3.4c.2.6.3 1.3.3 2 0 .7-.1 1.4-.3 2zm-2.3-6h-2.6l2.3-2.8c.8.7 1.4 1.7 1.9 2.8z"/>
+        </svg>
+      </button>
+
+      <!-- HOLLYWOOD STUDIOS (Clapperboard) -->
+      <button class="filter-btn" onclick="filterPark('Hollywood Studios', this)" title="Hollywood Studios">
+        <svg viewBox="0 0 24 24">
+          <path d="M18 4l2 4h-3l-2-4h-2l2 4h-3l-2-4H9l2 4H8L6 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4h-4z"/>
+        </svg>
+      </button>
+
+      <!-- ANIMAL KINGDOM (Tree Leaf) -->
+      <button class="filter-btn" onclick="filterPark('Animal Kingdom', this)" title="Animal Kingdom">
+        <svg viewBox="0 0 24 24">
+          <path d="M17 8C8 10 5.9 16.17 3.82 21.34l1.78 1.78L7 21.41C11.83 17 19 14 21 7c0-2-2-5-4-1z"/>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <div id="loader">Loading live wait times...</div>
+  <div id="ride-grid" class="grid"></div>
 
   <script>
-    // ------------------------------------------------------------------
-    // 1. CONFIGURATION
-    // ------------------------------------------------------------------
-    // REPLACE THIS WITH YOUR EXECUTABLE GOOGLE APPS SCRIPT WEB APP URL
-    const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/1-UEY94CM5JvU5oaqdJbnyeoP4q4gEA0Rv-6jvBqiKT0/exec';
+    const API_URL = "https://script.google.com/macros/s/AKfycbwfWWOIM9arMMjSJvmKg8m4yQBih-epaRGMVnTDOyrP8SmZgEXcWahCAP_BEokyMve_lw/exec";
 
-    // Global App State
-    let allAttractionsData = [];
-    let activeTab = 'all';
-    let currentSort = 'wait-desc';
+    let rawData = [];
+    let activePark = 'ALL';
 
-    // ------------------------------------------------------------------
-    // 2. LOCALSTORAGE HELPERS (FAVORITES)
-    // ------------------------------------------------------------------
-    function getFavorites() {
-      return new Set(JSON.parse(localStorage.getItem('disneyFavorites') || '[]'));
-    }
-
-    function toggleFavorite(id) {
-      const favorites = getFavorites();
-      if (favorites.has(id)) {
-        favorites.delete(id);
-      } else {
-        favorites.add(id);
-      }
-      localStorage.setItem('disneyFavorites', JSON.stringify(Array.from(favorites)));
-      renderAttractions(); // Re-render instantly to sync UI
-    }
-
-    // ------------------------------------------------------------------
-    // 3. FETCH DATA FROM GOOGLE APPS SCRIPT
-    // ------------------------------------------------------------------
-    async function fetchWaitTimes() {
+    async function loadData() {
       try {
-        const response = await fetch(APPS_SCRIPT_URL);
-        const data = await response.json();
-        
-        allAttractionsData = data;
-        renderAttractions();
-      } catch (error) {
-        console.error('Error fetching data:', error);
-        document.getElementById('attractions-container').innerHTML = 
-          `<div class="empty-state">Failed to load wait times. Check your API URL.</div>`;
+        const response = await fetch(API_URL);
+        rawData = await response.json();
+        document.getElementById('loader').style.display = 'none';
+        displayCards();
+      } catch (err) {
+        document.getElementById('loader').innerText = "Failed to load live wait times.";
+        console.error(err);
       }
     }
 
-    // ------------------------------------------------------------------
-    // 4. SORTING ENGINE
-    // ------------------------------------------------------------------
-    function sortAttractions(data) {
-      const sorted = [...data];
-      switch (currentSort) {
-        case 'wait-desc':
-          return sorted.sort((a, b) => (b.waitTime || 0) - (a.waitTime || 0));
-        case 'wait-asc':
-          return sorted.sort((a, b) => (a.waitTime || 0) - (b.waitTime || 0));
-        case 'favorites-first':
-          const favs = getFavorites();
-          return sorted.sort((a, b) => {
-            const aFav = favs.has(a.id) ? 1 : 0;
-            const bFav = favs.has(b.id) ? 1 : 0;
-            if (aFav !== bFav) return bFav - aFav;
-            return (b.waitTime || 0) - (a.waitTime || 0);
-          });
-        default:
-          return sorted;
-      }
+    function filterPark(parkName, btn) {
+      activePark = parkName;
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      displayCards();
     }
 
-    // ------------------------------------------------------------------
-    // 5. RENDER ENGINE
-    // ------------------------------------------------------------------
-    function renderAttractions() {
-      const container = document.getElementById('attractions-container');
-      const favorites = getFavorites();
+    function displayCards() {
+      const container = document.getElementById('ride-grid');
+      container.innerHTML = '';
 
-      // Filter Data by Active Tab
-      let filtered = allAttractionsData;
-      if (activeTab === 'favorites') {
-        filtered = allAttractionsData.filter(item => favorites.has(item.id));
-      } else if (activeTab !== 'all') {
-        filtered = allAttractionsData.filter(item => item.parkId === activeTab);
-      }
+      const filtered = activePark === 'ALL' 
+        ? rawData 
+        : rawData.filter(r => r.park === activePark);
 
-      // Apply Selected Sort
-      const sorted = sortAttractions(filtered);
+      filtered.forEach(ride => {
+        const card = document.createElement('div');
+        const statusClass = ride.isOpen ? (ride.status || 'NORMAL') : 'CLOSED';
+        card.className = `card ${statusClass}`;
 
-      // Handle Empty States
-      if (sorted.length === 0) {
-        const msg = activeTab === 'favorites' ? 'No favorites added yet.' : 'No attractions found.';
-        container.innerHTML = `<div class="empty-state">${msg}</div>`;
-        return;
-      }
+        let statusLabel = `${ride.percentDiff > 0 ? '+' : ''}${ride.percentDiff}%`;
+        if (ride.status === 'GREAT') statusLabel = `🟢 ${statusLabel}`;
+        if (ride.status === 'BAD') statusLabel = `🔴 ${statusLabel}`;
+        if (ride.status === 'NORMAL') statusLabel = `🟡 Normal`;
+        if (!ride.isOpen) statusLabel = `Closed`;
 
-      // Build HTML Cards
-      container.innerHTML = sorted.map(item => {
-        const isFav = favorites.has(item.id);
-        
-        // Dynamic styling for trend indicator
-        let trendClass = 'normal';
-        if (item.percentage < -10) trendClass = 'down';
-        if (item.percentage > 10) trendClass = 'up';
-
-        return `
-          <div class="card" data-id="${item.id}">
-            <div class="card-header">
-              <span class="park-name">${item.parkName || item.parkId}</span>
-              <button class="fav-btn" onclick="toggleFavorite('${item.id}')">
-                ${isFav ? '❤️' : '🤍'}
-              </button>
-            </div>
-            <div class="card-title">${item.name}</div>
-            <div class="card-body">
-              <span class="wait-time">${item.waitTime} min</span>
-              <span class="trend ${trendClass}">${item.trendArrow} ${item.percentage}%</span>
-            </div>
+        card.innerHTML = `
+          <div class="ride-info">
+            <div class="park-tag">${ride.park}</div>
+            <div class="ride-name">${ride.rideName}</div>
+            <div class="benchmark">Avg: ${ride.benchmarkWait} mins</div>
+          </div>
+          <div class="status-badge">
+            <div class="wait-time">${ride.isOpen ? ride.currentWait + '<span style="font-size:0.7rem;">m</span>' : '--'}</div>
+            <div class="badge ${statusClass}">${statusLabel}</div>
           </div>
         `;
-      }).join('');
+        container.appendChild(card);
+      });
     }
 
-    // ------------------------------------------------------------------
-    // 6. EVENT LISTENERS & INITIALIZATION
-    // ------------------------------------------------------------------
-    document.getElementById('sort-select').addEventListener('change', (e) => {
-      currentSort = e.target.value;
-      renderAttractions();
-    });
-
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        document.querySelectorAll('.tab-btn').forEach(t => t.classList.remove('active'));
-        e.target.classList.add('active');
-        activeTab = e.target.dataset.tab;
-        renderAttractions();
-      });
-    });
-
-    // Start App
-    fetchWaitTimes();
+    loadData();
   </script>
 </body>
 </html>
