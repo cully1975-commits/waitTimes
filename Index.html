@@ -48,21 +48,21 @@
     }
 
     .controls-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 6px;
-    }
+  display: flex;
+  flex-direction: column; /* Stacks filter bar and sort dropdown vertically */
+  align-items: center;    /* Centers elements horizontally */
+  gap: 8px;
+  margin-bottom: 6px;
+}
 
-    .filter-bar {
-      display: flex;
-      gap: 8px;
-      overflow-x: auto;
-      padding: 4px 0 4px 0;
-      -webkit-overflow-scrolling: touch;
-      flex: 1;
-    }
+  .filter-bar {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 4px 0;
+  max-width: 100%;
+  -webkit-overflow-scrolling: touch;
+}
 
     .filter-btn {
       background: var(--card-bg);
@@ -111,20 +111,22 @@
 
     /* Sort Control Styling */
     .sort-wrapper {
-      flex-shrink: 0;
-    }
+  width: 100%;
+  display: flex;
+  justify-content: flex-end; /* Aligns dropdown to the right under the buttons */
+}
 
-    .sort-select {
-      background: var(--card-bg);
-      color: var(--text);
-      border: 1px solid var(--normal-bg);
-      padding: 6px 10px;
-      border-radius: 16px;
-      font-size: 0.8rem;
-      font-weight: 600;
-      outline: none;
-      cursor: pointer;
-    }
+.sort-select {
+  background: var(--card-bg);
+  color: var(--text);
+  border: 1px solid var(--normal-bg);
+  padding: 6px 12px;
+  border-radius: 16px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  outline: none;
+  cursor: pointer;
+}
 
     .grid {
       display: grid;
