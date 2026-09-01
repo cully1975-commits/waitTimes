@@ -317,7 +317,7 @@
       const todayStr = new Date().toISOString().split('T')[0];
       const storedHistory = JSON.parse(localStorage.getItem('wdw_wait_history') || '{}');
 
-      // If stored data is from a previous day, purge it so trends reset today
+      // Reset wait history if changing dates
       if (storedHistory.date !== todayStr) {
         storedHistory.date = todayStr;
         storedHistory.waits = {};
@@ -333,7 +333,6 @@
           ride.trend = 'NONE';
         }
         
-        // Cache current wait for next fetch today
         if (ride.isOpen && ride.currentWait !== undefined) {
           storedHistory.waits[ride.rideName] = ride.currentWait;
         }
@@ -429,12 +428,20 @@
         if (ride.trend === 'UP') trendHtml = `<span class="trend-arrow trend-up" title="Wait increased">▲</span>`;
         if (ride.trend === 'DOWN') trendHtml = `<span class="trend-arrow trend-down" title="Wait decreased">▼</span>`;
 
-        // Access Badges (LL Single Pass / Virtual Queue)
+        // Access Badges (LL Single Pass with price / Virtual Queue)
         let accessBadges = '';
         if (ride.hasLLSingle || ride.hasVQ) {
           accessBadges = '<div class="access-tags">';
-          if (ride.hasLLSingle) accessBadges += '<span class="access-badge ll-single">LL Single</span>';
-          if (ride.hasVQ) accessBadges += '<span class="access-badge vq">Virtual Queue</span>';
+          
+          if (ride.hasLLSingle) {
+            const priceText = ride.llPrice ? ` $${ride.llPrice}` : '';
+            accessBadges += `<span class="access-badge ll-single">LL Single${priceText}</span>`;
+          }
+          
+          if (ride.hasVQ) {
+            accessBadges += '<span class="access-badge vq">Virtual Queue</span>';
+          }
+          
           accessBadges += '</div>';
         }
 
