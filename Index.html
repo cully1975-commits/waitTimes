@@ -19,6 +19,8 @@
       --normal-text: #e2e8f0;  
       
       --accent-gold: #ffffff; 
+      --event-purple: #7e22ce;
+      --event-orange: #ea580c;
     }
 
     body {
@@ -132,6 +134,40 @@
       color: #e2e8f0;
     }
 
+    /* Park Hours & Event Banner */
+    .park-info-banner {
+      display: none;
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid #475569;
+      border-radius: 8px;
+      padding: 8px 12px;
+      margin-top: 6px;
+      font-size: 0.78rem;
+      color: #f1f5f9;
+    }
+
+    .park-info-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .event-tag {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-weight: 700;
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    .event-tag.halloween { background: var(--event-orange); color: #ffffff; }
+    .event-tag.christmas { background: #16a34a; color: #ffffff; }
+    .event-tag.afterhours { background: var(--event-purple); color: #ffffff; }
+
     .grid {
       display: grid;
       grid-template-columns: 1fr;
@@ -209,7 +245,6 @@
       margin-top: 4px;
     }
 
-    /* Access Badges (LL / Virtual Queue) */
     .access-tags {
       display: flex;
       gap: 4px;
@@ -248,8 +283,8 @@
       font-size: 0.85rem;
       font-weight: bold;
     }
-    .trend-up { color: #fca5a5; }   /* Red for longer waits */
-    .trend-down { color: #4ade80; } /* Green for shorter waits */
+    .trend-up { color: #fca5a5; }
+    .trend-down { color: #4ade80; }
 
     .badge {
       display: inline-block;
@@ -265,7 +300,6 @@
     .badge.NORMAL { background: var(--normal-bg); color: var(--normal-text); }
     .badge.CLOSED { background: #334155; color: #94a3b8; }
 
-    /* Sparkline Styling */
     .sparkline-container {
       margin-top: 8px;
       padding-top: 6px;
@@ -334,6 +368,8 @@
   </header>
 
   <div id="ll-banner" class="ll-banner"></div>
+  <div id="park-info-banner" class="park-info-banner"></div>
+
   <div id="loader">Loading live wait times...</div>
   <div id="ride-grid" class="grid"></div>
 
@@ -342,6 +378,7 @@
 
     let rawData = [];
     let multiPassPrices = {};
+    let parkSchedules = {};
     let globalHistory = {};
     let activePark = 'ALL';
     let currentSort = 'wait-desc';
@@ -359,9 +396,6 @@
       displayCards();
     }
 
-    /**
-     * Maintains a 3-hour rolling history of wait times in localStorage
-     */
     function updateTrends(data) {
       const NOW = Date.now();
       const THREE_HOURS_MS = 3 * 60 * 60 * 1000;
@@ -380,10 +414,8 @@
           globalHistory[rideName] = [];
         }
 
-        // 1. Prune entries older than 3 hours
         globalHistory[rideName] = globalHistory[rideName].filter(entry => (NOW - entry.time) <= THREE_HOURS_MS);
 
-        // 2. Calculate 15-minute trend arrow
         const recentEntries = globalHistory[rideName].filter(entry => (NOW - entry.time) <= FIFTEEN_MINS_MS);
         if (recentEntries.length > 0) {
           const pastEntry = recentEntries[0];
@@ -394,7 +426,6 @@
           ride.trend = 'NONE';
         }
 
-        // 3. Append current snapshot
         globalHistory[rideName].push({
           time: NOW,
           wait: ride.currentWait
@@ -404,9 +435,6 @@
       localStorage.setItem('wdw_wait_history_v3', JSON.stringify(globalHistory));
     }
 
-    /**
-     * Generates a dynamic SVG Sparkline from historical data points
-     */
     function generateSparklineSVG(historyPoints) {
       if (!historyPoints || historyPoints.length < 2) {
         return '<span style="font-size: 0.65rem; color: var(--text-muted);">Collecting data...</span>';
@@ -419,21 +447,19 @@
       const waits = historyPoints.map(p => p.wait);
       const minWait = Math.min(...waits);
       const maxWait = Math.max(...waits);
-      const range = (maxWait - minWait) || 1; // Avoid division by zero
+      const range = (maxWait - minWait) || 1;
 
-      // Map points to SVG coordinates
       const points = historyPoints.map((p, index) => {
         const x = padding + (index / (historyPoints.length - 1)) * (svgWidth - padding * 2);
         const y = svgHeight - padding - ((p.wait - minWait) / range) * (svgHeight - padding * 2);
         return `${x.toFixed(1)},${y.toFixed(1)}`;
       }).join(' ');
 
-      // Color coding line based on net change
       const firstWait = historyPoints[0].wait;
       const lastWait = historyPoints[historyPoints.length - 1].wait;
-      let strokeColor = '#9aaccb'; // Neutral
-      if (lastWait > firstWait) strokeColor = '#fca5a5'; // Red (wait increasing)
-      if (lastWait < firstWait) strokeColor = '#4ade80'; // Green (wait decreasing)
+      let strokeColor = '#9aaccb';
+      if (lastWait > firstWait) strokeColor = '#fca5a5';
+      if (lastWait < firstWait) strokeColor = '#4ade80';
 
       return `
         <svg class="sparkline-svg" viewBox="0 0 ${svgWidth} ${svgHeight}">
@@ -459,6 +485,7 @@
         } else {
           rawData = payload.rides || [];
           multiPassPrices = payload.multiPassPrices || {};
+          parkSchedules = payload.parkSchedules || {};
         }
 
         updateTrends(rawData);
@@ -502,13 +529,51 @@
       });
     }
 
-    function updateLLBanner() {
-      const banner = document.getElementById('ll-banner');
-      if (activePark !== 'ALL' && activePark !== 'FAVORITES' && multiPassPrices[activePark]) {
-        banner.innerText = `⚡ ${activePark} LL Multi Pass Today: $${multiPassPrices[activePark]}`;
-        banner.style.display = 'block';
+    function updateBanners() {
+      const llBanner = document.getElementById('ll-banner');
+      const parkInfoBanner = document.getElementById('park-info-banner');
+
+      if (activePark !== 'ALL' && activePark !== 'FAVORITES') {
+        // 1. Update LL Price Banner
+        if (multiPassPrices[activePark]) {
+          llBanner.innerText = `⚡ ${activePark} LL Multi Pass Today: $${multiPassPrices[activePark]}`;
+          llBanner.style.display = 'block';
+        } else {
+          llBanner.style.display = 'none';
+        }
+
+        // 2. Update Park Hours & Events Banner
+        const schedule = parkSchedules[activePark];
+        if (schedule) {
+          let eventBadgeHtml = '';
+          if (schedule.specialEvent) {
+            let tagClass = 'afterhours';
+            if (schedule.specialEvent.toLowerCase().includes('halloween') || schedule.specialEvent.toLowerCase().includes('scary')) {
+              tagClass = 'halloween';
+            } else if (schedule.specialEvent.toLowerCase().includes('christmas') || schedule.specialEvent.toLowerCase().includes('merry')) {
+              tagClass = 'christmas';
+            }
+            eventBadgeHtml = `<span class="event-tag ${tagClass}">🎉 ${schedule.specialEvent}</span>`;
+          }
+
+          let earlyEntryText = schedule.earlyEntry ? ` | Early Entry: ${schedule.earlyEntry}` : '';
+
+          parkInfoBanner.innerHTML = `
+            <div class="park-info-row">
+              <div>
+                <strong>⏰ Hours:</strong> ${schedule.openingTime} - ${schedule.closingTime}${earlyEntryText}
+              </div>
+              ${eventBadgeHtml}
+            </div>
+          `;
+          parkInfoBanner.style.display = 'block';
+        } else {
+          parkInfoBanner.style.display = 'none';
+        }
+
       } else {
-        banner.style.display = 'none';
+        llBanner.style.display = 'none';
+        parkInfoBanner.style.display = 'none';
       }
     }
 
@@ -517,7 +582,7 @@
       container.innerHTML = '';
       const favs = getFavorites();
 
-      updateLLBanner();
+      updateBanners();
 
       let filtered = [];
       if (activePark === 'FAVORITES') {
@@ -551,12 +616,10 @@
         if (ride.status === 'NORMAL') statusLabel = `🟡 Normal`;
         if (!ride.isOpen) statusLabel = `Closed`;
 
-        // Render Trend Arrows
         let trendHtml = '';
         if (ride.trend === 'UP') trendHtml = `<span class="trend-arrow trend-up" title="Wait increased">▲</span>`;
         if (ride.trend === 'DOWN') trendHtml = `<span class="trend-arrow trend-down" title="Wait decreased">▼</span>`;
 
-        // Access Badges
         let accessBadges = '<div class="access-tags">';
         if (ride.hasLLSingle) {
           const priceText = ride.llPrice ? ` $${ride.llPrice}` : '';
@@ -569,7 +632,6 @@
         }
         accessBadges += '</div>';
 
-        // Sparkline graph generation
         const rideHistory = globalHistory[ride.rideName] || [];
         const sparklineHtml = ride.isOpen ? generateSparklineSVG(rideHistory) : '<span style="font-size: 0.65rem; color: var(--text-muted);">Attraction Closed</span>';
 
@@ -603,11 +665,8 @@
       });
     }
 
-    // Load immediately on page open
-loadData();
-
-// Automatically pull fresh data every 5 minutes (300,000 ms)
-setInterval(loadData, 300000);
+    loadData();
+    setInterval(loadData, 300000);
   </script>
 </body>
 </html>
