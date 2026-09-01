@@ -329,31 +329,52 @@
       displayCards();
     }
 
+    /**
+     * Maintains a 15-minute rolling history of wait times in localStorage
+     */
     function updateTrends(data) {
-      const todayStr = new Date().toISOString().split('T')[0];
-      const storedHistory = JSON.parse(localStorage.getItem('wdw_wait_history') || '{}');
+      const NOW = Date.now();
+      const FIFTEEN_MINS_MS = 15 * 60 * 1000;
 
-      if (storedHistory.date !== todayStr) {
-        storedHistory.date = todayStr;
-        storedHistory.waits = {};
-      }
+      let history = JSON.parse(localStorage.getItem('wdw_wait_history_v2') || '{}');
 
       data.forEach(ride => {
-        const prevWait = storedHistory.waits[ride.rideName];
-        if (prevWait !== undefined && ride.isOpen) {
-          if (ride.currentWait > prevWait) ride.trend = 'UP';
-          else if (ride.currentWait < prevWait) ride.trend = 'DOWN';
-          else ride.trend = 'SAME';
+        if (!ride.isOpen || ride.currentWait === undefined) {
+          ride.trend = 'NONE';
+          return;
+        }
+
+        const rideName = ride.rideName;
+        if (!history[rideName]) {
+          history[rideName] = [];
+        }
+
+        // 1. Prune entries older than 15 minutes for this ride
+        history[rideName] = history[rideName].filter(entry => (NOW - entry.time) <= FIFTEEN_MINS_MS);
+
+        // 2. Find the entry closest to 15 minutes ago (oldest snapshot available within 15 min window)
+        if (history[rideName].length > 0) {
+          const pastEntry = history[rideName][0]; 
+          
+          if (ride.currentWait > pastEntry.wait) {
+            ride.trend = 'UP';
+          } else if (ride.currentWait < pastEntry.wait) {
+            ride.trend = 'DOWN';
+          } else {
+            ride.trend = 'SAME';
+          }
         } else {
           ride.trend = 'NONE';
         }
-        
-        if (ride.isOpen && ride.currentWait !== undefined) {
-          storedHistory.waits[ride.rideName] = ride.currentWait;
-        }
+
+        // 3. Append current timestamp and wait time snapshot
+        history[rideName].push({
+          time: NOW,
+          wait: ride.currentWait
+        });
       });
 
-      localStorage.setItem('wdw_wait_history', JSON.stringify(storedHistory));
+      localStorage.setItem('wdw_wait_history_v2', JSON.stringify(history));
     }
 
     async function loadData() {
@@ -361,7 +382,6 @@
         const response = await fetch(API_URL);
         const payload = await response.json();
 
-        // Support both structured response payload and legacy array format
         if (Array.isArray(payload)) {
           rawData = payload;
         } else {
@@ -459,10 +479,10 @@
         if (ride.status === 'NORMAL') statusLabel = `🟡 Normal`;
         if (!ride.isOpen) statusLabel = `Closed`;
 
-        // Render Trend Arrows
+        // Render Trend Arrows (15-Minute Rolling Window)
         let trendHtml = '';
-        if (ride.trend === 'UP') trendHtml = `<span class="trend-arrow trend-up" title="Wait increased">▲</span>`;
-        if (ride.trend === 'DOWN') trendHtml = `<span class="trend-arrow trend-down" title="Wait decreased">▼</span>`;
+        if (ride.trend === 'UP') trendHtml = `<span class="trend-arrow trend-up" title="Wait increased over the last 15 mins">▲</span>`;
+        if (ride.trend === 'DOWN') trendHtml = `<span class="trend-arrow trend-down" title="Wait decreased over the last 15 mins">▼</span>`;
 
         // Access Badges (LL Single / LL Multi / VQ)
         let accessBadges = '<div class="access-tags">';
@@ -471,7 +491,6 @@
           const priceText = ride.llPrice ? ` $${ride.llPrice}` : '';
           accessBadges += `<span class="access-badge ll-single">LL Single${priceText}</span>`;
         } else {
-          // Standard attractions eligible for LL Multi Pass
           accessBadges += '<span class="access-badge ll-multi">LL Multi</span>';
         }
 
