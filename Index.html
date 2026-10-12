@@ -84,9 +84,9 @@
 
     .proximity-controls {
       display: flex;
-      gap: 10px;
+      gap: 12px;
       flex-wrap: wrap;
-      margin-bottom: 10px;
+      margin-bottom: 8px;
       align-items: center;
     }
 
@@ -194,12 +194,20 @@
       <button class="filter-btn" onclick="setFilter('PROXIMITY')">📍 Deal Finder</button>
     </div>
 
-    <!-- Proximity Land Selector Drawer -->
+    <!-- Proximity Park & Land Selector Drawer -->
     <div id="proximityPanel" class="proximity-panel">
       <div class="proximity-controls">
-        <label for="currentLandSelect" style="font-size: 0.85rem; color: var(--text-muted);">Current Location:</label>
+        <label for="dealParkSelect" style="font-size: 0.85rem; color: var(--text-muted);">Park:</label>
+        <select id="dealParkSelect" onchange="updateLandDropdown()">
+          <option value="Magic Kingdom">Magic Kingdom</option>
+          <option value="EPCOT">EPCOT</option>
+          <option value="Hollywood Studios">Hollywood Studios</option>
+          <option value="Animal Kingdom">Animal Kingdom</option>
+        </select>
+
+        <label for="currentLandSelect" style="font-size: 0.85rem; color: var(--text-muted);">Current Land:</label>
         <select id="currentLandSelect" onchange="renderRides()">
-          <!-- Populated dynamically -->
+          <!-- Populated dynamically based on selected park -->
         </select>
       </div>
       <div style="font-size: 0.75rem; color: var(--text-muted);">
@@ -215,7 +223,7 @@
 
 <script>
   // REPLACE WITH YOUR DEPLOYED GOOGLE APPS SCRIPT WEB APP URL
-  const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwfWWOIM9arMMjSJvmKg8m4yQBih-epaRGMVnTDOyrP8SmZgEXcWahCAP_BEokyMve_lw/exec";
+  const APPS_SCRIPT_URL = "YOUR_WEB_APP_URL_HERE";
 
   let appData = null;
   let currentFilter = 'ALL';
@@ -254,10 +262,16 @@
   function updateLandDropdown() {
     if (!appData || !appData.walkingMatrices) return;
     
-    // Default to Magic Kingdom lands if 'ALL' or 'PROXIMITY' is selected
-    const activePark = (currentFilter === 'ALL' || currentFilter === 'PROXIMITY') ? 'Magic Kingdom' : currentFilter;
+    // Determine which park's lands to load
+    let targetPark = 'Magic Kingdom';
+    if (currentFilter === 'PROXIMITY') {
+      targetPark = document.getElementById('dealParkSelect').value;
+    } else if (currentFilter !== 'ALL') {
+      targetPark = currentFilter;
+    }
+
     const landSelect = document.getElementById('currentLandSelect');
-    const parkMatrix = appData.walkingMatrices[activePark] || {};
+    const parkMatrix = appData.walkingMatrices[targetPark] || {};
     const lands = Object.keys(parkMatrix);
 
     landSelect.innerHTML = '';
@@ -267,6 +281,8 @@
       opt.textContent = land;
       landSelect.appendChild(opt);
     });
+
+    renderRides();
   }
 
   function renderRides() {
@@ -278,15 +294,14 @@
     let ridesToRender = [...appData.rides];
 
     if (currentFilter === 'PROXIMITY') {
-      const selectedPark = document.getElementById('parkSelect') ? document.getElementById('parkSelect').value : 'Magic Kingdom';
-      // Fallback park selection if user is in Proximity mode
+      const selectedPark = document.getElementById('dealParkSelect').value;
       const currentLand = document.getElementById('currentLandSelect').value;
-      const parkMatrix = appData.walkingMatrices['Magic Kingdom'] || {};
+      const parkMatrix = appData.walkingMatrices[selectedPark] || {};
       const landDistances = parkMatrix[currentLand] || {};
 
-      // Compute Net Value and sort
+      // Compute Net Value and sort for the selected park
       ridesToRender = ridesToRender
-        .filter(r => r.isOpen && r.park === 'Magic Kingdom') // Can expand to multi-park location matching
+        .filter(r => r.isOpen && r.park === selectedPark)
         .map(r => {
           const timeSaved = r.benchmarkWait - r.currentWait;
           const walkTime = landDistances[r.land] !== undefined ? landDistances[r.land] : 5;
