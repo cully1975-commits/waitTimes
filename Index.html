@@ -244,11 +244,9 @@
   function setFilter(filter) {
     currentFilter = filter;
     
-    // Update active button state
     document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
     event.target.classList.add('active');
 
-    // Show/hide proximity dropdown panel
     const panel = document.getElementById('proximityPanel');
     if (filter === 'PROXIMITY') {
       panel.classList.add('active');
@@ -256,13 +254,13 @@
       panel.classList.remove('active');
     }
 
+    updateLandDropdown();
     renderRides();
   }
 
   function updateLandDropdown() {
     if (!appData || !appData.walkingMatrices) return;
     
-    // Determine which park's lands to load
     let targetPark = 'Magic Kingdom';
     if (currentFilter === 'PROXIMITY') {
       targetPark = document.getElementById('dealParkSelect').value;
@@ -299,7 +297,7 @@
       const parkMatrix = appData.walkingMatrices[selectedPark] || {};
       const landDistances = parkMatrix[currentLand] || {};
 
-      // Compute Net Value and sort for the selected park
+      // Filter to selected park, preserve exact r.currentWait, and compute net value
       ridesToRender = ridesToRender
         .filter(r => r.isOpen && r.park === selectedPark)
         .map(r => {
